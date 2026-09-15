@@ -30,6 +30,13 @@
   .pill.warn{color:#f0b429; border-color:#8a6d1f}
   .pill.good{color:var(--ok); border-color:#1f6f2f}
 
+  .statsLink{
+    font-size:14px; font-weight:700; padding:7px 14px; border-radius:10px;
+    background:var(--accent); color:#fff; white-space:nowrap; text-decoration:none;
+    display:inline-flex; align-items:center; gap:5px; box-shadow:0 1px 0 rgba(0,0,0,.2);
+  }
+  .statsLink:active{opacity:.8}
+
   #stage{position:relative; flex:1 1 auto; min-height:0; background:#000; overflow:hidden}
   #video{width:100%; height:100%; object-fit:cover; display:block}
   #reticle{
@@ -102,6 +109,7 @@
   <div class="sess" id="sessLabel">No session</div>
   <div class="count" id="count">0</div>
   <button class="pill" id="queuePill">synced</button>
+  <a class="statsLink" href="stats.html">📊 Stats</a>
 </header>
 
 <div id="stage">
@@ -155,6 +163,9 @@
   <div class="row" style="margin-top:9px">
     <button class="btn ghost" id="exportBtn">Export session CSV</button>
     <button class="btn ghost" id="syncBtn">Sync now</button>
+  </div>
+  <div class="row" style="margin-top:9px">
+    <a class="btn ghost" href="stats.html" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center">📊 Stats</a>
   </div>
   <div class="row" style="margin-top:9px">
     <button class="btn ghost" id="clearSessBtn" style="color:#f85149; border-color:#6e2926">Clear this session's scans</button>
@@ -424,8 +435,8 @@ function openSetup(){
     : 'No roster loaded.';
   $('setupDlg').showModal();
 }
-$('setupBtn').onclick = openSetup;
-$('setupBtn2').onclick = openSetup;
+$('setupBtn').onclick = function(){ openSetup(); };
+$('setupBtn2').onclick = function(){ openSetup(); };
 $('closeSetup').onclick = function(){ $('setupDlg').close(); };
 $('queuePill').onclick = function(){ sync(); };
 

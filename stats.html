@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Attendance Stats</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --line:#30363d; --ink:#e6edf3; --muted:#8b949e;
+  --ok:#2ea043; --dup:#d29922; --err:#da3633; --accent:#388bfd;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--bg); color:var(--ink); font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+}
+header{
+  display:flex; align-items:center; gap:10px; padding:14px 16px;
+  background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5;
+}
+header h1{font-size:17px; font-weight:700; margin:0; flex:1}
+main{max-width:760px; margin:0 auto; padding:16px 16px 40px}
+
+/* ---- gate screen ---- */
+#gate{
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+}
+#gate .box{
+  width:100%; max-width:420px; background:var(--panel); border:1px solid var(--line);
+  border-radius:16px; padding:26px 24px;
+}
+#gate .lock{font-size:30px; margin-bottom:10px}
+#gate h2{margin:0 0 4px; font-size:19px}
+#gate p.sub{color:var(--muted); font-size:14px; margin:0 0 18px; line-height:1.5}
+#gate label{display:block; font-size:13px; color:var(--muted); margin:0 0 6px; font-weight:500}
+#gate input[type=url]{
+  width:100%; padding:12px; border-radius:9px; border:1px solid var(--line);
+  background:#0d1117; color:var(--ink); font-size:15px; font-family:inherit
+}
+#gate .remember{display:flex; align-items:center; gap:8px; margin:14px 0 4px; font-size:13.5px; color:var(--muted)}
+#gate .remember input{width:auto}
+#gate .btn{width:100%; margin-top:14px; padding:13px}
+#gate .gateErr{color:#f0b4ae; font-size:13.5px; margin-top:12px; line-height:1.5; display:none}
+#dashboard{display:none}
+a.btn{display:inline-flex; align-items:center; justify-content:center; text-decoration:none}
+
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:18px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px}
+.card .num{font-size:26px; font-weight:800; font-variant-numeric:tabular-nums}
+.card .lbl{font-size:12.5px; color:var(--muted); margin-top:3px}
+
+.setupRow{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap}
+.setupRow input{
+  flex:1; min-width:220px; padding:11px; border-radius:9px; border:1px solid var(--line);
+  background:#0d1117; color:var(--ink); font-size:15px; font-family:inherit
+}
+.btn{
+  background:var(--accent); color:#fff; border:0; border-radius:9px; padding:11px 16px;
+  font-size:15px; font-weight:600; cursor:pointer; white-space:nowrap
+}
+.btn.ghost{background:transparent; border:1px solid var(--line); color:var(--ink); font-weight:500}
+.btn:active{opacity:.75}
+
+#searchRow{margin-bottom:10px}
+#searchRow input{
+  width:100%; padding:11px; border-radius:9px; border:1px solid var(--line);
+  background:#0d1117; color:var(--ink); font-size:15px; font-family:inherit
+}
+
+table{width:100%; border-collapse:collapse; font-size:14.5px}
+th,td{text-align:left; padding:9px 6px; border-bottom:1px solid var(--line)}
+th{color:var(--muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; cursor:pointer; user-select:none}
+th.num,td.num{text-align:right; font-variant-numeric:tabular-nums}
+tr:hover td{background:#1c2129}
+.rank{color:var(--muted); width:2.2em; display:inline-block}
+
+.bar-wrap{display:flex; align-items:center; gap:8px}
+.bar-track{flex:1; height:7px; border-radius:99px; background:#21262d; overflow:hidden; min-width:60px}
+.bar-fill{height:100%; border-radius:99px; background:var(--ok)}
+.bar-fill.mid{background:var(--dup)}
+.bar-fill.low{background:var(--err)}
+.pct{font-variant-numeric:tabular-nums; min-width:3.6em; text-align:right; color:var(--muted); font-size:13px}
+
+.state{text-align:center; padding:50px 20px; color:var(--muted)}
+.state.err{color:#f0b4ae}
+.hint{font-size:12.5px; color:var(--muted); margin:-8px 0 16px; line-height:1.5}
+#status{font-size:13px; color:var(--muted)}
+
+.scannerLink{
+  font-size:14px; font-weight:700; padding:7px 14px; border-radius:10px;
+  background:var(--accent); color:#fff; white-space:nowrap; text-decoration:none;
+  display:inline-flex; align-items:center; gap:5px; box-shadow:0 1px 0 rgba(0,0,0,.2);
+}
+.scannerLink:active{opacity:.8}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <div class="lock">🔒</div>
+    <h2>Attendance Stats</h2>
+    <p class="sub">TA/instructor access only.</p>
+    <label for="gateEndpointIn">Google Sheet endpoint URL</label>
+    <input type="url" id="gateEndpointIn" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    <button class="btn" id="gateBtn">View stats</button>
+    <div class="gateErr" id="gateErr"></div>
+    <a class="scannerLink" href="scanner.html" style="display:flex; justify-content:center; margin-top:16px">← Back to scanner</a>
+  </div>
+</div>
+
+<div id="dashboard">
+  <header>
+    <a class="scannerLink" href="scanner.html">← Scanner</a>
+    <h1>Attendance Stats</h1>
+    <span id="status"></span>
+    <button class="btn ghost" id="refreshBtn">Refresh</button>
+    <button class="btn ghost" id="lockBtn">Lock</button>
+  </header>
+
+  <main>
+    <div class="hint">Calls the endpoint's <code>?action=stats</code> route. If the Roster tab is filled in, students who never scanned show up at 0% too; otherwise only scanned students appear.</div>
+    <div id="content"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var contentEl = $('content'), statusEl = $('status');
+  var gateEl = $('gate'), dashEl = $('dashboard');
+  var gateEndpointIn = $('gateEndpointIn'), gateErrEl = $('gateErr');
+
+  var currentUrl = '';
+  var lastData = null, sortKey = 'attended', sortDir = -1, query = '';
+
+  function setStatus(t){ statusEl.textContent = t || ''; }
+
+  function renderState(kind, msg){
+    contentEl.innerHTML = '<div class="state' + (kind==='err' ? ' err' : '') + '">' + msg + '</div>';
+  }
+
+  function barClass(pct){
+    if(pct >= 80) return '';
+    if(pct >= 50) return 'mid';
+    return 'low';
+  }
+
+  function render(){
+    if(!lastData){ return; }
+    var d = lastData;
+    var students = d.students.slice();
+
+    if(query){
+      var q = query.toLowerCase();
+      students = students.filter(function(s){ return s.name.toLowerCase().indexOf(q) !== -1; });
+    }
+
+    students.sort(function(a,b){
+      var av = a[sortKey], bv = b[sortKey];
+      if(typeof av === 'string') return sortDir * av.localeCompare(bv);
+      return sortDir * (av - bv);
+    });
+
+    var avgPct = d.students.length
+      ? Math.round((d.students.reduce(function(s,x){ return s + x.pct; }, 0) / d.students.length) * 10) / 10
+      : 0;
+
+    var html = '';
+    html += '<div class="cards">';
+    html += '<div class="card"><div class="num">' + d.totalSessions + '</div><div class="lbl">Total sessions</div></div>';
+    html += '<div class="card"><div class="num">' + d.students.length + '</div><div class="lbl">Students on log</div></div>';
+    html += '<div class="card"><div class="num">' + avgPct + '%</div><div class="lbl">Avg. attendance</div></div>';
+    html += '</div>';
+
+    html += '<div id="searchRow"><input type="text" id="searchIn" placeholder="Filter by name…" value="' + escapeAttr(query) + '"></div>';
+
+    html += '<table><thead><tr>';
+    html += '<th style="width:2.2em"></th>';
+    html += '<th data-key="name">Name' + arrow('name') + '</th>';
+    html += '<th class="num" data-key="attended">Sessions' + arrow('attended') + '</th>';
+    html += '<th class="num" data-key="pct">Attendance' + arrow('pct') + '</th>';
+    html += '</tr></thead><tbody>';
+
+    students.forEach(function(s, i){
+      html += '<tr>';
+      html += '<td class="rank">' + (i+1) + '</td>';
+      html += '<td>' + escapeHtml(s.name) + '</td>';
+      html += '<td class="num">' + s.attended + ' / ' + s.total + '</td>';
+      html += '<td class="num"><div class="bar-wrap"><div class="bar-track"><div class="bar-fill ' + barClass(s.pct) + '" style="width:' + s.pct + '%"></div></div><span class="pct">' + s.pct + '%</span></div></td>';
+      html += '</tr>';
+    });
+
+    if(!students.length){
+      html += '<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:24px">No matching students</td></tr>';
+    }
+
+    html += '</tbody></table>';
+    contentEl.innerHTML = html;
+
+    $('searchIn').addEventListener('input', function(e){ query = e.target.value; render(); });
+    Array.prototype.forEach.call(document.querySelectorAll('th[data-key]'), function(th){
+      th.addEventListener('click', function(){
+        var key = th.getAttribute('data-key');
+        if(sortKey === key){ sortDir *= -1; } else { sortKey = key; sortDir = key === 'name' ? 1 : -1; }
+        render();
+      });
+    });
+  }
+
+  function arrow(key){
+    if(sortKey !== key) return '';
+    return sortDir === 1 ? ' ▲' : ' ▼';
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  // Fetches stats for a given endpoint. Only unlocks (shows the dashboard)
+  // on a confirmed ok:true response — a wrong/garbage URL just shows an
+  // error on the gate screen, never a blank or broken dashboard.
+  async function fetchStats(url){
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    var res = await fetch(url + sep + 'action=stats', { method:'GET' });
+    var data = await res.json();
+    if(!data || data.ok === false){
+      throw new Error(data && data.error ? data.error : 'Endpoint did not return valid stats.');
+    }
+    return data;
+  }
+
+  function showGateError(msg){
+    gateErrEl.textContent = msg;
+    gateErrEl.style.display = 'block';
+  }
+  function clearGateError(){
+    gateErrEl.style.display = 'none';
+  }
+
+  async function attemptUnlock(){
+    var url = gateEndpointIn.value.trim();
+    clearGateError();
+    if(!url){ showGateError('Enter the Apps Script endpoint URL.'); return; }
+
+    $('gateBtn').disabled = true;
+    $('gateBtn').textContent = 'Checking…';
+    try{
+      var data = await fetchStats(url);
+      currentUrl = url;
+      lastData = data;
+      gateEl.style.display = 'none';
+      dashEl.style.display = 'block';
+      var note = data.usedRoster ? '' : ' · no Roster tab found, showing scanned students only (absentees not included)';
+      setStatus('updated ' + new Date(data.generatedAt || Date.now()).toLocaleTimeString() + note);
+      render();
+    }catch(e){
+      showGateError('Could not load stats from that endpoint: ' + (e && e.message ? e.message : e) +
+        '. Check the URL, and make sure Code.gs has the ?action=stats branch deployed.');
+    }
+    $('gateBtn').disabled = false;
+    $('gateBtn').textContent = 'View stats';
+  }
+
+  async function refresh(){
+    if(!currentUrl) return;
+    setStatus('refreshing…');
+    try{
+      var data = await fetchStats(currentUrl);
+      lastData = data;
+      var note = data.usedRoster ? '' : ' · no Roster tab found, showing scanned students only (absentees not included)';
+      setStatus('updated ' + new Date(data.generatedAt || Date.now()).toLocaleTimeString() + note);
+      render();
+    }catch(e){
+      setStatus('refresh failed: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function lock(){
+    currentUrl = '';
+    lastData = null;
+    dashEl.style.display = 'none';
+    gateEl.style.display = 'flex';
+    clearGateError();
+  }
+
+  $('gateBtn').addEventListener('click', attemptUnlock);
+  gateEndpointIn.addEventListener('keydown', function(e){ if(e.key === 'Enter') attemptUnlock(); });
+  $('refreshBtn').addEventListener('click', refresh);
+  $('lockBtn').addEventListener('click', lock);
+})();
+</script>
+</body>
+</html>
